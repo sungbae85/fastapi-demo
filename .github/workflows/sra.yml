@@ -83,7 +83,7 @@ jobs:
       # 9) SRA scan (LLM off)
       - name: Run SRA scan
         run: |
-          sra scan --use-llm off
+          sra scan --use-llm off --config ./sra.yml
 
       # 10) 산출물 업로드(항상)
       - name: Upload SRA reports (always)
@@ -97,4 +97,4 @@ jobs:
       # 11) Gate (실패하면 job 실패가 정상)
       - name: Run SRA gate
         run: |
-          sra gate
+          sra gate --config ./sra.yml
