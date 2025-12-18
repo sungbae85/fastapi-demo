@@ -1,4 +1,4 @@
 gates:
-  min_score: 0
+  min_score: 70
   fail_on_high: true
   pytest_required: false
