@@ -1,5 +1,3 @@
-profile: default
-
 gates:
   min_score: 70
   fail_on_high: true
