@@ -81,7 +81,7 @@ jobs:
           python -c "import sra; print('sra imported:', sra.__file__)" || true
 
       # A) show repo root sra.yml (before scan/gate)
-      - name: Debug: show repo root sra.yml (before scan/gate)
+      - name: "Debug: show repo root sra.yml (before scan/gate)"
         run: |
           echo "== PWD =="
           pwd
