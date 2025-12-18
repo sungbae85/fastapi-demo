@@ -55,7 +55,7 @@ jobs:
       # a1) Install analyzers (ruff/mypy/bandit/pytest)
       - name: Install analyzers (ruff/mypy/bandit/pytest)
         run: |
-          pip install ruff mypy bandit pytest
+          pip install ruff mypy bandit pytest pytest-cov
 
       # a2) Install analyzers (dev tools)
       - name: Install analyzers (dev tools)
