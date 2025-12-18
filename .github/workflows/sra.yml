@@ -5,28 +5,50 @@ on:
   push:
     branches: [ main ]
 
+# 기본적으로 이 레포 컨텐츠 읽기만 필요
+permissions:
+  contents: read
+
 jobs:
   sra:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      # 1) 대상 레포(fastapi-demo) 체크아웃
+      - name: Checkout target repo (fastapi-demo)
         uses: actions/checkout@v4
 
+      # 2) SRA 엔진 레포(worksra) 체크아웃 (Private 접근: PAT Secret 사용)
+      - name: Checkout SRA engine repo (worksra)
+        uses: actions/checkout@v4
+        with:
+          repository: sungbae85/worksra
+          path: worksra
+          token: ${{ secrets.SRA_REPO_TOKEN }}
+
+      # 3) 파이썬 준비
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install SRA (git tag)
+      # 4) SRA 설치 (로컬 체크아웃 경로에서 editable 설치)
+      - name: Install SRA (editable)
         run: |
           python -m pip install -U pip
-          pip install "git+https://github.com/sungbae85/worksra.git@main#egg=sra"
-# pip install "git+https://<GHE_HOST>/<ORG>/<SRA_REPO>.git@<TAG>#egg=sra"
+          pip install -e ./worksra
 
+      # 5) 설치 확인(문제 진단용)
+      - name: Verify SRA installation
+        run: |
+          sra --help
+          python -c "import rich; print('rich:', rich.__version__)"
+
+      # 6) 스캔 실행 (LLM off)
       - name: Run SRA scan
         run: |
           sra scan --use-llm off
 
+      # 7) 게이트 실행 (latest report 사용)
       - name: Run SRA gate
         run: |
           sra gate
