@@ -16,7 +16,7 @@ jobs:
       - name: Checkout target repo (fastapi-demo)
         uses: actions/checkout@v4
 
-      # 2) SRA 엔진 레포 체크아웃 (Private 접근: PAT Secret 사용)
+      # 2) SRA 엔진 레포 체크아웃 (Private: PAT)
       - name: Checkout SRA engine repo (worksra)
         uses: actions/checkout@v4
         with:
@@ -24,7 +24,7 @@ jobs:
           path: worksra
           token: ${{ secrets.SRA_REPO_TOKEN }}
 
-      # 3) 파이썬 준비
+      # 3) Python 준비
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -36,39 +36,56 @@ jobs:
           python -m pip install -U pip
           pip install -e ./worksra
 
-      # 5) 설치 확인(진단용) - 실패해도 계속 진행 (warn)
-      - name: Verify SRA installation (warn only)
-        continue-on-error: true
-        run: |
-          echo "== sra command =="
-          sra --help || true
-
-          echo "== python version =="
-          python --version
-
-          echo "== rich version (safe) =="
-          python -c "import importlib.metadata as m; print('rich:', m.version('rich'))" || true
-
-          echo "== sra package check (best effort) =="
-          python -c "import sra; print('sra imported:', sra.__file__)" || true
-
-      # a1) Install analyzers (ruff/mypy/bandit/pytest)
-      - name: Install analyzers (ruff/mypy/bandit/pytest)
-        run: |
-          pip install ruff mypy bandit pytest pytest-cov
-
-      # a2) Install analyzers (dev tools)
+      # 5) 분석 도구 설치 (ruff/mypy/bandit/pytest/pytest-cov)
       - name: Install analyzers (dev tools)
         run: |
           python -m pip install -U pip
-          pip install -r requirements-dev.txt
+          pip install ruff mypy bandit pytest pytest-cov
 
-      # 6) 스캔 실행 (LLM off)
+      # 6) semgrep을 pipx로 분리 설치 + PATH 등록 + 동작 테스트 (warn-only)
+      - name: Install semgrep via pipx (isolated) + ensure PATH (warn-only)
+        continue-on-error: true
+        run: |
+          set -e
+
+          python -m pip install -U pip pipx
+
+          # pipx 바이너리 경로를 Actions PATH에 추가 (중요: 현재 step 뿐 아니라 다음 step에서도 유지)
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+          # semgrep 설치 (pipx는 별도 venv에 설치하므로 의존성 충돌 최소화)
+          pipx install semgrep
+
+          echo "== semgrep path check =="
+          which semgrep || true
+          semgrep --version || true
+
+          echo "== semgrep smoke test =="
+          # auto config 사용 시 metrics off와 함께 쓰면 오류가 날 수 있어 on으로 둠
+          semgrep scan --config auto --metrics on . || true
+
+      # 7) semgrep이 실제로 PATH에 잡혔는지 재확인 (warn-only)
+      - name: Verify semgrep on PATH (warn-only)
+        continue-on-error: true
+        run: |
+          echo "PATH=$PATH"
+          which semgrep || true
+          semgrep --version || true
+
+      # 8) 설치 확인(진단용) - 실패해도 계속
+      - name: Verify SRA installation (warn-only)
+        continue-on-error: true
+        run: |
+          sra --help || true
+          python -c "import importlib.metadata as m; print('rich:', m.version('rich'))" || true
+          python -c "import sra; print('sra imported:', sra.__file__)" || true
+
+      # 9) SRA scan (LLM off)
       - name: Run SRA scan
         run: |
           sra scan --use-llm off
 
-      # 7) 산출물 업로드(디버깅/감사용) - 실패해도 업로드 시도
+      # 10) 산출물 업로드(항상)
       - name: Upload SRA reports (always)
         if: always()
         uses: actions/upload-artifact@v4
@@ -77,7 +94,7 @@ jobs:
           path: reports/
           if-no-files-found: warn
 
-      # 8) 게이트 실행 (Gate 실패 시 job 실패가 정상)
+      # 11) Gate (실패하면 job 실패가 정상)
       - name: Run SRA gate
         run: |
           sra gate
