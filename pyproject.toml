@@ -1,0 +1,10 @@
+# 6️⃣ (선택) pyproject.toml – ruff/mypy 기본 설정
+#> 초보자라면 **처음엔 없어도 됩니다**
+#> 하지만 “일부러 실패/통과 조절”하려면 있으면 좋음
+
+[tool.ruff]
+line-length = 100
+select = ["F", "E"]
+
+[tool.mypy]
+ignore_missing_imports = true
