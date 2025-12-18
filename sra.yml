@@ -1,0 +1,4 @@
+gates:
+  min_score: 0
+  fail_on_high: true
+  pytest_required: false
