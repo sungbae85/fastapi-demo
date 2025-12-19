@@ -63,7 +63,7 @@ jobs:
           python -c "import importlib.metadata as m; print('sra version:', m.version('sra'))" || true
 
       # 7) repo root의 sra.yml 확인 (진단용)
-      - name: Debug: show repo root sra.yml (before scan/gate)
+      - name: "Debug: show repo root sra.yml (before scan/gate)"
         continue-on-error: true
         run: |
           echo "== PWD =="
@@ -88,7 +88,7 @@ jobs:
           if-no-files-found: warn
 
       # 10) Gate 설정 로딩 확인 (warn-only)
-      - name: Debug: print active profile (warn-only)
+      - name: "Debug: print active profile (warn-only)"
         continue-on-error: true
         run: |
           python -c "from sra.config import load_config, get_active_profile; from pathlib import Path; cfg=load_config(Path('.'), explicit=Path('./sra.yml')); prof=get_active_profile(cfg); print('active profile:', prof.name); print('gates:', prof.gates)"
