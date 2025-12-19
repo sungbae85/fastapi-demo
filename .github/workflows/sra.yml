@@ -104,6 +104,12 @@ jobs:
           path: reports/
           if-no-files-found: warn
 
+      # B) min_score: 70이 먹히는 지 확인하려 함
+      - name: "Debug: print active profile (warn-only)"
+        continue-on-error: true
+        run: |
+          python -c "from sra.config import load_config, get_active_profile; from pathlib import Path; cfg=load_config(Path('.'), explicit=Path('./sra.yml')); prof=get_active_profile(cfg); print('active profile:', getattr(prof,'name',None)); print('gates:', getattr(prof,'gates',None))"
+
       # 11) Gate (실패하면 job 실패가 정상)
       - name: Run SRA gate
         run: |
