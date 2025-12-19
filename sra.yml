@@ -1,8 +1,31 @@
+
+schema_version: 1
+
+# 어떤 프로필을 기본으로 쓸지
 active_profile: default
 
 profiles:
   default:
+    # 분석 대상 범위/방식
+    analysis:
+      mode: pr_diff
+      base_branch: main
+      diff_expand:
+        import_hops: 0
+
+    # Gate 정책 (중요!)
     quality_gates:
-      min_score: 70
+      min_score: 70          # ✅ E-10-lite 핵심: 여기서 기준 확정
       fail_on_high: true
       pytest_required: false
+
+    # F단계 대비: LLM은 아직 off로 운영 (값은 Secrets로 받을 예정)
+    llm:
+      enabled_in_trusted: false
+      provider_priority: ["gemma_http"]
+      secrets:
+        endpoint: "SRA_LLM_ENDPOINT"
+        api_key: "SRA_LLM_API_KEY"
+
+tools:
+  python: {}
