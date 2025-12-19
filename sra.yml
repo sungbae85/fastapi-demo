@@ -2,11 +2,7 @@ active_profile: default
 
 profiles:
   default:
-    gates:
+    quality_gates:
       min_score: 70
       fail_on_high: true
       pytest_required: false
-
-    analysis:
-      base_branch: main
-      mode: pr_diff
