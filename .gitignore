@@ -1,7 +1,21 @@
-.venv/
 __pycache__/
 *.pyc
 .env
 .idea/
 .vscode/
 reports/
+
+# Large local model files
+*.gguf
+*.bin
+*.safetensors
+
+# Common local model dirs
+models/
+model/
+llm/
+weights/
+
+# Local artifacts
+.venv/
+
