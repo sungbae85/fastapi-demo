@@ -5,8 +5,11 @@
     push:
       branches: [ main ]
 
+  # 이 부분이 핵심입니다!
   permissions:
-    contents: read
+    contents: read      # 소스 코드를 읽기 위해 필요
+    pull-requests: write # PR에 댓글(Comment)을 달기 위해 반드시 필요
+    checks: write        # (선택 사항) 분석 결과를 체크 탭에 표시할 때 필요
 
   jobs:
     sra:
@@ -23,7 +26,7 @@
           with:
             python-version: "3.11"
 
-        - name: Debug Token Length Temp
+        - name: "Debug : Token Length Temp"
           env:
             MY_TOKEN: ${{ secrets.SRA_REPO_TOKEN }}
           run: |
