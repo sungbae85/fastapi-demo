@@ -107,3 +107,9 @@
         - name: Run SRA gate
           run: |
             sra gate --config ./sra.yml
+
+        - name: Post PR Comment
+          if: github.event_name == 'pull_request'
+          uses: mshick/add-pr-comment@v2
+          with:
+            message-path: reports/latest/pr_comment.md
