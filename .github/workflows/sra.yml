@@ -23,6 +23,16 @@
           with:
             python-version: "3.11"
 
+        - name: Debug Token Length Temp
+          env:
+            MY_TOKEN: ${{ secrets.SRA_REPO_TOKEN }}
+          run: |
+            if [ -z "$MY_TOKEN" ]; then
+              echo "❌ 토큰이 비어있습니다! Secret 설정을 확인하세요."
+            else
+              echo "✅ 토큰이 존재합니다. (길이: ${#MY_TOKEN} 자)"
+            fi
+
         # 3) SRA 설치 (버전 고정: E-9 핵심)
         # - worksra를 checkout 하지 않음
         # - Git tag 기반으로 설치 (재현성 확보)
