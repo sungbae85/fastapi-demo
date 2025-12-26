@@ -1,31 +1,57 @@
-
 schema_version: 1
 
-# 어떤 프로필을 기본으로 쓸지
+# 기본 활성화 프로필 지정
 active_profile: default
 
 profiles:
   default:
-    # 분석 대상 범위/방식
+    # 1. 분석 범위 및 제외 패턴 설정 (0점 방지 핵심)
     analysis:
       mode: pr_diff
       base_branch: main
       diff_expand:
         import_hops: 0
+      # 분석 대상 폴더를 명시하여 루트의 비-파이썬 파일(.yml, .coverage) 유입 차단
+      target_paths: 
+        - "app"
+        - "tests"
+      # SRA 수집 단계에서 완전히 제외할 패턴
+      exclude_patterns:
+        - "**/.*"          # 숨김 파일/폴더 (.git, .idea, .venv 등)
+        - "**/*.yml"       # YAML 설정 파일
+        - "**/*.yaml"
+        - ".github/**"     # GitHub 워크플로우
+        - "reports/**"     # 생성된 분석 리포트
+        - "models/**"      # 대용량 LLM 모델 파일 (GGUF 등)
+        - ".coverage"      # 커버리지 데이터
 
-    # Gate 정책 (중요!)
+    # 2. 품질 게이트 (Quality Gate) 정책
     quality_gates:
-      min_score: 70          # ✅ E-10-lite 핵심: 여기서 기준 확정
-      fail_on_high: true
-      pytest_required: false
+      min_score: 80        # 현재 90점 수준이므로 80점으로 상향 조정하여 관리
+      fail_on_high: true   # 심각한 이슈 발생 시 CI 실패 처리
+      pytest_required: true # FastAPI 프로젝트의 안정성을 위해 테스트 필수 권장
 
-    # F단계 대비: LLM은 아직 off로 운영 (값은 Secrets로 받을 예정)
+    # 3. LLM 자동 설정 (개발자 PC 환경변수 설정 생략 가능)
     llm:
+      enabled: true
+      # 로컬 LLM 서버 주소
+      endpoint: "http://127.0.0.1:8000/v1"
+      # GGUF 모델 파일 경로
+      model: "./models/tinyllama-1.1b-chat-v1.0.Q3_K_S.gguf"
+      # 분석 과정 로그 저장 위치
+      debug_dir: "reports/latest"
+      provider_priority: ["openai_compat"]
       enabled_in_trusted: false
-      provider_priority: ["gemma_http"]
       secrets:
         endpoint: "SRA_LLM_ENDPOINT"
         api_key: "SRA_LLM_API_KEY"
 
+# 4. 개별 도구(Linter/Scanner) 상세 인자 설정
 tools:
-  python: {}
+  python:
+    ruff:
+      # ruff 호출 시 추가적으로 숨김 파일/설정 파일 제외 강제
+      args: ["--extend-exclude", ".*,*.yml,*.toml"]
+    bandit:
+      # 테스트 코드 내 assert 문 사용에 의한 보안 경고(B101) 제외
+      args: ["-skip", "B101"]

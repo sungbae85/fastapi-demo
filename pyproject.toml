@@ -4,7 +4,26 @@
 
 [tool.ruff]
 line-length = 100
-select = ["F", "E"]
+# 분석에서 완전히 제외할 폴더/파일들
+# 가이드의 권장안대로 기본 제외 목록을 유지하며 '추가'만 합니다.
+#extend-exclude = [
+#    "reports",
+#    "models",
+#    "docs",
+#    "build",
+#    "dist"
+#]
+extend-exclude = [
+    "*.yml",         # 현재 폴더의 yml
+    "*.yaml",
+    "**/*.yml",      # 하위 폴더의 yml
+    ".github",       # github 설정 폴더
+    "reports",
+]
+
+[tool.ruff.lint]
+# 기존 select 설정을 이쪽(lint) 아래로 옮기세요
+select = ["E", "F", "I"]
 
 [tool.mypy]
 ignore_missing_imports = true
