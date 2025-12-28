@@ -55,7 +55,7 @@ jobs:
             pytest==${{ env.PYTEST_VER }} `
             pytest-cov requests python-dotenv
 
-      - name: name: Run SRA Scan (Path Fixed)
+      - name: Run SRA Scan (Path Fixed)
         env:
           SRA_PLANNER_MODEL: ${{ env.PLANNER_MODEL }}
           SRA_PATCHER_MODEL: ${{ env.PATCHER_MODEL }}
