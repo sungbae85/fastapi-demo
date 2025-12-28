@@ -1,49 +1,68 @@
-name: sra
+name: SRA CI (Version Managed)
 
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches: ['main']
 
-permissions:
-  contents: read
-  pull-requests: write
+# 1. 관리 포인트를 최상단 env로 집중
+env:
+  # 경로 설정
+  VENV_PY: 'C:\worksra\.venv\Scripts\python.exe'
+  VENV_BIN: 'C:\worksra\.venv\Scripts'
+  # 도구 버전 (사용자님 로컬 환경과 동기화)
+  RUFF_VER: '0.14.10'
+  MYPY_VER: '1.19.1'
+  BANDIT_VER: '1.9.2'
+  PYTEST_VER: '9.0.2'
+  # LLM 설정
+  SRA_LLM_ENDPOINT: 'http://127.0.0.1:11434/v1'
+  PLANNER_MODEL: 'gemma3:4b'
+  PATCHER_MODEL: 'codegemma:2b'
+
+  # 테스트용 SRA 버전 및 저장소 정보
+  SRA_REPO_URL: 'https://github.com/sungbae85/worksra.git'
+  SRA_TAG: 'v0.2.14-20251227' # 태그 버전
+
 
 jobs:
   sra:
     runs-on: [self-hosted, 4ollama]
+    # 2. 반복되는 powershell 설정을 기본값으로 지정
+    defaults:
+      run:
+        shell: powershell
 
     steps:
-      - name: Checkout target repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run SRA Scan with LLM On (Real Ollama)
-        shell: powershell
-        env:
-          SRA_LLM_ENDPOINT: "http://127.0.0.1:11434/v1"
-          SRA_PLANNER_MODEL: "gemma3:4b"
-          SRA_PATCHER_MODEL: "codegemma:2b"
+      - name: Install (Git Tag Test)
         run: |
-          $VENV_BIN = "C:\worksra\.venv\Scripts"
-          $VENV_PY = "$VENV_BIN\python.exe"
+          $TRUSTED = "--trusted-host", "pypi.org", "--trusted-host", "files.pythonhosted.org", "--trusted-host", "github.com"
           
-          # ✅ 핵심: 가상환경 Scripts 폴더를 PATH 맨 앞에 추가하여 ruff 등을 찾을 수 있게 함
-          $env:Path = "$VENV_BIN;" + $env:Path
+          Write-Host "Installing SRA from Git Tag: ${{ env.SRA_TAG }}..."
+          # ✅ 로컬 경로 대신 GitHub 주소와 태그를 직접 지정합니다.
+          & "${{ env.VENV_PY }}" -m pip install $TRUSTED `
+            "git+${{ env.SRA_REPO_URL }}@${{ env.SRA_TAG }}"
           
-          # 이제 ruff, mypy 등을 시스템이 직접 인식합니다.
-          & $VENV_PY -m sra scan --repo . --use-llm on --context-mode changed_only
+          Write-Host "Installing other tools..."
+          & "${{ env.VENV_PY }}" -m pip install $TRUSTED `
+            ruff==${{ env.RUFF_VER }} `
+            mypy==${{ env.MYPY_VER }} `
+            bandit==${{ env.BANDIT_VER }} `
+            pytest==${{ env.PYTEST_VER }} `
+            pytest-cov requests python-dotenv
+
+      - name: Run SRA Scan
+        env:
+          SRA_PLANNER_MODEL: ${{ env.PLANNER_MODEL }}
+          SRA_PATCHER_MODEL: ${{ env.PATCHER_MODEL }}
+        run: |
+          # PATH 추가 로직을 환경 변수 활용으로 단순화
+          $env:Path = '${{ env.VENV_BIN }};' + $env:Path
+          & '${{ env.VENV_PY }}' -m sra scan --repo . --use-llm on --context-mode changed_only
 
       - name: Gate
-        shell: powershell
         run: |
-          $VENV_BIN = "C:\worksra\.venv\Scripts"
-          $VENV_PY = "$VENV_BIN\python.exe"
-          
-          # ✅ --latest 옵션 대신 명시적 경로 사용 (Typer 호환성)
-          & $VENV_PY -m sra gate
-
-      - name: Post PR Comment
-        if: github.event_name == 'pull_request'
-        uses: mshick/add-pr-comment@v2
-        with:
-          message-path: reports/latest/pr_comment.md
+          & '${{ env.VENV_PY }}' -m sra gate
