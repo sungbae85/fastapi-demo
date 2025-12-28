@@ -55,14 +55,19 @@ jobs:
             pytest==${{ env.PYTEST_VER }} `
             pytest-cov requests python-dotenv
 
-      - name: Run SRA Scan
+      - name: Run SRA Scan (Full Context Enabled)
         env:
           SRA_PLANNER_MODEL: ${{ env.PLANNER_MODEL }}
           SRA_PATCHER_MODEL: ${{ env.PATCHER_MODEL }}
         run: |
-          # PATH 추가 로직을 환경 변수 활용으로 단순화
-          $env:Path = '${{ env.VENV_BIN }};' + $env:Path
-          & '${{ env.VENV_PY }}' -m sra scan --repo . --use-llm on --context-mode changed_only
+          $env:Path = "${{ env.VENV_BIN }};" + $env:Path
+          
+          # ✅ 비법 반영: 절대 경로 지정 + 모델 정밀도 확보
+          & "${{ env.VENV_PY }}" -m sra scan `
+            --repo "${{ github.workspace }}" `
+            --use-llm on `
+            --context-mode changed_only `
+            --config ./sra.yml
 
       - name: Gate
         run: |
