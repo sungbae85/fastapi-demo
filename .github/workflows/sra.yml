@@ -55,16 +55,20 @@ jobs:
             pytest==${{ env.PYTEST_VER }} `
             pytest-cov requests python-dotenv
 
-      - name: Run SRA Scan (Full Context Enabled)
+      - name: name: Run SRA Scan (Path Fixed)
         env:
           SRA_PLANNER_MODEL: ${{ env.PLANNER_MODEL }}
           SRA_PATCHER_MODEL: ${{ env.PATCHER_MODEL }}
         run: |
+          # ✅ 현재 실제 코드가 있는 위치를 정확히 변수에 담습니다.
+          $REPO_ROOT = "${{ github.workspace }}"
+          Write-Host "Scanning repository at: $REPO_ROOT"
+          
           $env:Path = "${{ env.VENV_BIN }};" + $env:Path
           
-          # ✅ 비법 반영: 절대 경로 지정 + 모델 정밀도 확보
+          # ✅ 비법: --repo 인자에 . 대신 절대 경로 변수를 사용합니다.
           & "${{ env.VENV_PY }}" -m sra scan `
-            --repo "${{ github.workspace }}" `
+            --repo "$REPO_ROOT" `
             --use-llm on `
             --context-mode changed_only `
             --config ./sra.yml
