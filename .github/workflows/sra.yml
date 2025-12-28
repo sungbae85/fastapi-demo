@@ -76,4 +76,5 @@ jobs:
 
       - name: Gate
         run: |
+          cd ..
           & '${{ env.VENV_PY }}' -m sra gate
