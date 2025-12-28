@@ -64,7 +64,7 @@ jobs:
           
           # ✅ 비법 반영: 절대 경로 지정 + 모델 정밀도 확보
           & "${{ env.VENV_PY }}" -m sra scan `
-            --repo "${{ github.workspace }}" `
+            --repo "$REPO_ROOT" `
             --use-llm on `
             --context-mode changed_only `
             --config ./sra.yml
