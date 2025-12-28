@@ -55,23 +55,24 @@ jobs:
             pytest==${{ env.PYTEST_VER }} `
             pytest-cov requests python-dotenv
 
-      - name: Run SRA Scan (Path Fixed)
+      - name: Run SRA Scan (Double-Folder Path Fix)
         env:
           SRA_PLANNER_MODEL: ${{ env.PLANNER_MODEL }}
           SRA_PATCHER_MODEL: ${{ env.PATCHER_MODEL }}
         run: |
-          # ✅ 현재 실제 코드가 있는 위치를 정확히 변수에 담습니다.
-          $REPO_ROOT = "${{ github.workspace }}"
-          Write-Host "Scanning repository at: $REPO_ROOT"
+          # ✅ 비법: 현재 워크스페이스의 '부모 폴더'를 찾아 변수에 담습니다.
+          $REPO_PARENT = (Get-Item "${{ github.workspace }}").Parent.FullName
+          Write-Host "Setting Repo Root to Parent: $REPO_PARENT"
           
           $env:Path = "${{ env.VENV_BIN }};" + $env:Path
           
-          # ✅ 비법: --repo 인자에 . 대신 절대 경로 변수를 사용합니다.
+          # ✅ --repo 인자에 부모 폴더($REPO_PARENT)를 넘겨줍니다.
+          # 이렇게 하면 fastapi-demo/app/main.py 경로를 정확히 찾아냅니다.
           & "${{ env.VENV_PY }}" -m sra scan `
-            --repo "$REPO_ROOT" `
+            --repo "$REPO_PARENT" `
             --use-llm on `
             --context-mode changed_only `
-            --config ./sra.yml
+            --config "${{ github.workspace }}/sra.yml"
 
       - name: Gate
         run: |
