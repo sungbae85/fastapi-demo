@@ -37,13 +37,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install (Git Tag Test)
+      - name: Install (Git Tag with No-Isolation)
         run: |
           $TRUSTED = "--trusted-host", "pypi.org", "--trusted-host", "files.pythonhosted.org", "--trusted-host", "github.com"
           
           Write-Host "Installing SRA from Git Tag: ${{ env.SRA_TAG }}..."
-          # ✅ 로컬 경로 대신 GitHub 주소와 태그를 직접 지정합니다.
+          # ✅ --no-build-isolation 옵션을 추가하여 인터넷 접속을 원천 차단합니다.
           & "${{ env.VENV_PY }}" -m pip install $TRUSTED `
+            --no-build-isolation `
             "git+${{ env.SRA_REPO_URL }}@${{ env.SRA_TAG }}"
           
           Write-Host "Installing other tools..."
