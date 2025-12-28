@@ -20,6 +20,11 @@ env:
   PLANNER_MODEL: 'gemma3:4b'
   PATCHER_MODEL: 'codegemma:2b'
 
+  # 테스트용 SRA 버전 및 저장소 정보
+  SRA_REPO_URL: 'https://github.com/sungbae85/worksra.git'
+  SRA_TAG: 'v0.2.14-20251227' # 태그 버전
+
+
 jobs:
   sra:
     runs-on: [self-hosted, 4ollama]
@@ -32,19 +37,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install (Version Synced)
+      - name: Install (Git Tag Test)
         run: |
-          Write-Host "Checking Environment..."
-          & "${{ env.VENV_PY }}" --version # 파이썬 3.11.0 확인
+          $TRUSTED = "--trusted-host", "pypi.org", "--trusted-host", "files.pythonhosted.org", "--trusted-host", "github.com"
           
-          # ✅ 해결책: 쉼표(,)를 사용해 배열로 선언합니다. 
-          # 이렇게 하면 파워쉘이 각각의 인자를 pip에게 따로따로 잘 전달해줍니다.
-          $TRUSTED = "--trusted-host", "pypi.org", "--trusted-host", "files.pythonhosted.org"
+          Write-Host "Installing SRA from Git Tag: ${{ env.SRA_TAG }}..."
+          # ✅ 로컬 경로 대신 GitHub 주소와 태그를 직접 지정합니다.
+          & "${{ env.VENV_PY }}" -m pip install $TRUSTED `
+            "git+${{ env.SRA_REPO_URL }}@${{ env.SRA_TAG }}"
           
-          Write-Host "Installing SRA..."
-          & "${{ env.VENV_PY }}" -m pip install $TRUSTED --no-build-isolation --no-deps -e .
-          
-          Write-Host "Installing pinned versions of tools..."
+          Write-Host "Installing other tools..."
           & "${{ env.VENV_PY }}" -m pip install $TRUSTED `
             ruff==${{ env.RUFF_VER }} `
             mypy==${{ env.MYPY_VER }} `
