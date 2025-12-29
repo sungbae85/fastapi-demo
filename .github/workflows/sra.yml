@@ -1,66 +1,69 @@
-name: SRA CI (Version Managed)
+name: SRA CI (Independent Tag-Based)
 
 on:
   pull_request:
   push:
     branches: ['main']
 
-# 동일 브랜치 내 중복 분석 방지 및 자원 보호
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# 1. 관리 포인트를 최상단 env로 집중
 env:
-  # 경로 설정
+  # 시스템 고정 경로 (러너 PC의 도구 위치)
   VENV_PY: 'C:\worksra\.venv\Scripts\python.exe'
   VENV_BIN: 'C:\worksra\.venv\Scripts'
-  # 도구 버전 (로컬 환경과 동기화)
+
+  # [버전 관리] 중앙 SRA 저장소 및 태그 정보
+  SRA_REPO_URL: 'https://github.com/sungbae85/worksra.git'
+  SRA_TAG: '0.2.15-20251229' # 최신 패치 버전
+
+  # 분석 도구 버전 고정
   RUFF_VER: '0.14.10'
   MYPY_VER: '1.19.1'
   BANDIT_VER: '1.9.2'
   PYTEST_VER: '9.0.2'
+
   # LLM 설정
-  SRA_LLM_ENDPOINT: 'http://127.0.0.1:11434/v1'
   PLANNER_MODEL: 'gemma3:4b'
   PATCHER_MODEL: 'codegemma:2b'
-
-  # 테스트용 SRA 버전 및 저장소 정보
-  SRA_REPO_URL: 'https://github.com/sungbae85/worksra.git'
-  SRA_TAG: 'v0.2.14-20251227' # 태그 버전
-
 
 jobs:
   sra:
     runs-on: [self-hosted, 4ollama]
-    # 2. 반복되는 powershell 설정을 기본값으로 지정
     defaults:
       run:
         shell: powershell
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Install (Git Tag with No-Isolation)
+      - name: Install SRA from Git Tag
         run: |
           $TRUSTED = "--trusted-host", "pypi.org", "--trusted-host", "files.pythonhosted.org", "--trusted-host", "github.com"
           
-          Write-Host "Installing SRA from Git Tag: ${{ env.SRA_TAG }}..."
-          # --no-build-isolation 옵션을 추가하여 인터넷 접속을 원천 차단
+          Write-Host " Installing SRA Version: ${{ env.SRA_TAG }} directly from Central Repo..."
+          # 로컬 폴더 참조가 아닌, Git Tag에서 직접 설치 (격리 및 독립성 확보)
           & "${{ env.VENV_PY }}" -m pip install $TRUSTED `
-            --no-build-isolation `
+            --force-reinstall `
             "git+${{ env.SRA_REPO_URL }}@${{ env.SRA_TAG }}"
           
-          Write-Host "Installing other tools..."
+          Write-Host "️ Ensuring analysis tools are synced..."
           & "${{ env.VENV_PY }}" -m pip install $TRUSTED `
-            ruff==${{ env.RUFF_VER }} `
-            mypy==${{ env.MYPY_VER }} `
-            bandit==${{ env.BANDIT_VER }} `
-            pytest==${{ env.PYTEST_VER }} `
+            ruff==${{ env.RUFF_VER }} mypy==${{ env.MYPY_VER }} `
+            bandit==${{ env.BANDIT_VER }} pytest==${{ env.PYTEST_VER }} `
             pytest-cov requests python-dotenv
 
-      - name: Run SRA Scan (Enterprise Mode & Strict Isolation Mode)
+      - name: Set Run ID
+        run: |
+          $RID = "${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "SRA_RUN_ID=$RID" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Unique Execution ID: $RID"
+
+      - name: Run SRA Scan (Strict Enterprise Mode)
         env:
           SRA_PLANNER_MODEL: ${{ env.PLANNER_MODEL }}
           SRA_PATCHER_MODEL: ${{ env.PATCHER_MODEL }}
@@ -68,45 +71,29 @@ jobs:
           cd ..
           $env:Path = "${{ env.VENV_BIN }};" + $env:Path
           
-          # GitHub 고유 실행 ID와 시도 횟수를 조합하여 절대 중복 없는 ID 생성
-          $UNIQUE_ID = "${{ github.run_id }}-${{ github.run_attempt }}"
-          Write-Host "Unique Run ID: $UNIQUE_ID"
-          
-          # --run-id 인자를 통해 SRA가 해당 이름으로 폴더를 만들도록 강제 & no-latest로 Strict Isolation Mode
+          # Git Tag 버전의 엔진을 사용하여 분석 수행
+          # --user와 --run-id를 통한 완벽한 다중 사용자 격리
           & "${{ env.VENV_PY }}" -m sra scan `
             --repo . `
-            --run-id "$UNIQUE_ID" `
+            --run-id "$env:SRA_RUN_ID" `
+            --user "${{ github.actor }}" `
             --use-llm on `
-            --context-mode changed_only `
-            --no-latest `
             --config "./${{ github.event.repository.name }}/sra.yml"
 
-
-      - name: Gate (Enterprise Mode)
+      - name: Gate (Strict Isolation)
+        if: always()
         run: |
           cd ..
-          # 스캔 시 사용한 것과 동일한 고유 ID 생성
-          $UNIQUE_ID = "${{ github.run_id }}-${{ github.run_attempt }}"
-          
-          # 명시적으로 해당 ID 폴더 내의 report.json을 검증
+          # 명시적 경로 지정을 통한 게이트 통과 검증
           & "${{ env.VENV_PY }}" -m sra gate `
-            --report "./reports/$UNIQUE_ID/report.json" `
+            --report "./reports/$env:SRA_RUN_ID/report.json" `
             --config "./${{ github.event.repository.name }}/sra.yml"
 
-      - name: "Cleanup Old Reports (Retention: 2 Days)"
-        if: always() # 분석 성공/실패 여부와 관계없이 실행
+      - name: Cleanup Reports
+        if: always()
         run: |
-          # 2일이 지난 기록은 runner의 _work/fastapi-demo/reports/ 폴더에서 삭제
           $limit = (Get-Date).AddDays(-2)
           $reportPath = "../reports" 
-          
-          Write-Host "Cleaning reports older than 2 days in $reportPath ..."
-          
           if (Test-Path $reportPath) {
-              Get-ChildItem -Path $reportPath -Directory | Where-Object { $_.CreationTime -lt $limit } | ForEach-Object {
-                  Write-Host "Removing: $($_.Name) (Created: $($_.CreationTime))"
-                  Remove-Item -Path $_.FullName -Recurse -Force
-              }
+              Get-ChildItem -Path $reportPath -Directory | Where-Object { $_.CreationTime -lt $limit } | Remove-Item -Recurse -Force
           }
-
-
