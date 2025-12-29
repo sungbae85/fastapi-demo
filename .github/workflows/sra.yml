@@ -78,3 +78,21 @@ jobs:
         run: |
           cd ..
           & '${{ env.VENV_PY }}' -m sra gate
+
+      - name: "Cleanup Old Reports (Retention: 2 Days)"
+        if: always() # 분석 성공/실패 여부와 관계없이 실행
+        run: |
+          # 2일이 지난 기록은 runner의 _work/fastapi-demo/reports/ 폴더에서 삭제
+          $limit = (Get-Date).AddDays(-2)
+          $reportPath = "../reports" 
+          
+          Write-Host "Cleaning reports older than 2 days in $reportPath ..."
+          
+          if (Test-Path $reportPath) {
+              Get-ChildItem -Path $reportPath -Directory | Where-Object { $_.CreationTime -lt $limit } | ForEach-Object {
+                  Write-Host "Removing: $($_.Name) (Created: $($_.CreationTime))"
+                  Remove-Item -Path $_.FullName -Recurse -Force
+              }
+          }
+
+
