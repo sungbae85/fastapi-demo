@@ -16,7 +16,7 @@ env:
 
   # [버전 관리] 중앙 SRA 저장소 및 태그 정보
   SRA_REPO_URL: 'https://github.com/sungbae85/worksra.git'
-  SRA_TAG: 'v0.2.16-20251231' # 최신 패치 버전
+  SRA_TAG: 'v0.2.19-20251231' # 최신 패치 버전
 
   # 분석 도구 버전 고정
   RUFF_VER: '0.14.10'
