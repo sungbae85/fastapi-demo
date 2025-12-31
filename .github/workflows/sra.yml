@@ -1,4 +1,4 @@
-name: SRA CI (Independent Tag-Based)
+name: SRA CI (Enterprise Managed)
 
 on:
   pull_request:
@@ -10,23 +10,16 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # 시스템 고정 경로 (러너 PC의 도구 위치)
+  # G-1: 시스템 고정 경로 (러너 PC 인프라)
   VENV_PY: 'C:\worksra\.venv\Scripts\python.exe'
   VENV_BIN: 'C:\worksra\.venv\Scripts'
 
-  # [버전 관리] 중앙 SRA 저장소 및 태그 정보
+  # G-2: 프로젝트 격리 절대 경로
+  SRA_DATA_ROOT: 'C:\sra_data'
+
+  # [버전 관리] 최종 패치 버전 동기화
   SRA_REPO_URL: 'https://github.com/sungbae85/worksra.git'
-  SRA_TAG: 'v0.2.19-20251231' # 최신 패치 버전
-
-  # 분석 도구 버전 고정
-  RUFF_VER: '0.14.10'
-  MYPY_VER: '1.19.1'
-  BANDIT_VER: '1.9.2'
-  PYTEST_VER: '9.0.2'
-
-  # LLM 설정
-  PLANNER_MODEL: 'gemma3:4b'
-  PATCHER_MODEL: 'codegemma:2b'
+  SRA_TAG: 'v0.2.21-20251231'
 
 jobs:
   sra:
@@ -41,59 +34,52 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install SRA from Git Tag
+      - name: Install SRA Engine
         run: |
           $TRUSTED = "--trusted-host", "pypi.org", "--trusted-host", "files.pythonhosted.org", "--trusted-host", "github.com"
           
-          Write-Host " Installing SRA Version: ${{ env.SRA_TAG }} directly from Central Repo..."
-          # 로컬 폴더 참조가 아닌, Git Tag에서 직접 설치 (격리 및 독립성 확보)
-          & "${{ env.VENV_PY }}" -m pip install $TRUSTED `
-            --force-reinstall `
-            "git+${{ env.SRA_REPO_URL }}@${{ env.SRA_TAG }}"
-          
-          Write-Host "️ Ensuring analysis tools are synced..."
-          & "${{ env.VENV_PY }}" -m pip install $TRUSTED `
-            ruff==${{ env.RUFF_VER }} mypy==${{ env.MYPY_VER }} `
-            bandit==${{ env.BANDIT_VER }} pytest==${{ env.PYTEST_VER }} `
-            pytest-cov requests python-dotenv
+          Write-Host "Syncing SRA Engine Version: ${{ env.SRA_TAG }}..."
+          # 빌드 도구 최신화 및 엔진 설치 (WinError 2 방지용 도구 포함)
+          & "${{ env.VENV_PY }}" -m pip install $TRUSTED --upgrade pip setuptools wheel
+          & "${{ env.VENV_PY }}" -m pip install $TRUSTED --force-reinstall "git+${{ env.SRA_REPO_URL }}@${{ env.SRA_TAG }}"
 
       - name: Set Run ID
         run: |
           $RID = "${{ github.run_id }}-${{ github.run_attempt }}"
           echo "SRA_RUN_ID=$RID" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host "Unique Execution ID: $RID"
 
-      - name: Run SRA Scan (Strict Enterprise Mode)
-        env:
-          SRA_PLANNER_MODEL: ${{ env.PLANNER_MODEL }}
-          SRA_PATCHER_MODEL: ${{ env.PATCHER_MODEL }}
+      - name: Run SRA Scan (G-2 Isolated Mode)
         run: |
-          cd ..
+          # 가상환경 경로를 PATH에 추가하여 ruff, mypy 등 실행 보장
           $env:Path = "${{ env.VENV_BIN }};" + $env:Path
           
-          # Git Tag 버전의 엔진을 사용하여 분석 수행
-          # --user와 --run-id를 통한 완벽한 다중 사용자 격리
+          # ✅ --repo . 를 사용하여 현재 프로젝트(fastapi-demo)를 자동 감지
           & "${{ env.VENV_PY }}" -m sra scan `
             --repo . `
-            --run-id "$env:SRA_RUN_ID" `
             --user "${{ github.actor }}" `
-            --use-llm on `
-            --config "./${{ github.event.repository.name }}/sra.yml"
+            --data-root "${{ env.SRA_DATA_ROOT }}" `
+            --run-id "$env:SRA_RUN_ID" `
+            --use-llm on
 
-      - name: Gate (Strict Isolation)
+      - name: Run SRA Gate (Dynamic Discovery)
         if: always()
         run: |
-          cd ..
-          # 명시적 경로 지정을 통한 게이트 통과 검증
+          $env:Path = "${{ env.VENV_BIN }};" + $env:Path
+          
+          # ✅ 엔진이 스스로 C:\sra_data\fastapi-demo\{RID}\report.json을 찾아감
           & "${{ env.VENV_PY }}" -m sra gate `
-            --report "./reports/$env:SRA_RUN_ID/report.json" `
-            --config "./${{ github.event.repository.name }}/sra.yml"
+            --repo . `
+            --data-root "${{ env.SRA_DATA_ROOT }}" `
+            --run-id "$env:SRA_RUN_ID"
 
-      - name: Cleanup Reports
+      - name: "Cleanup Old Reports"
         if: always()
         run: |
           $limit = (Get-Date).AddDays(-2)
-          $reportPath = "../reports" 
-          if (Test-Path $reportPath) {
-              Get-ChildItem -Path $reportPath -Directory | Where-Object { $_.CreationTime -lt $limit } | Remove-Item -Recurse -Force
+          # G-2: 격리 폴더(fastapi-demo) 하위의 오래된 리포트 삭제
+          $targetPath = Join-Path "${{ env.SRA_DATA_ROOT }}" "fastapi-demo"
+          if (Test-Path $targetPath) {
+              Get-ChildItem -Path $targetPath -Directory | Where-Object { $_.CreationTime -lt $limit } | ForEach-Object {
+                  Remove-Item -Path $_.FullName -Recurse -Force
+              }
           }
