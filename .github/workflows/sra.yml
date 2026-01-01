@@ -19,7 +19,7 @@ env:
 
   # [버전 관리] 최종 패치 버전 동기화
   SRA_REPO_URL: 'https://github.com/sungbae85/worksra.git'
-  SRA_TAG: 'v0.2.20-20260101'
+  SRA_TAG: 'v0.2.21-20260101'
 
 jobs:
   sra:
