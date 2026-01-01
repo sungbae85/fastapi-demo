@@ -19,7 +19,7 @@ env:
 
   # [버전 관리] 최종 패치 버전 동기화
   SRA_REPO_URL: 'https://github.com/sungbae85/worksra.git'
-  SRA_TAG: 'v0.2.19-20251231'
+  SRA_TAG: 'v0.2.20-20260101'
 
 jobs:
   sra:
@@ -71,6 +71,19 @@ jobs:
             --repo . `
             --data-root "${{ env.SRA_DATA_ROOT }}" `
             --run-id "$env:SRA_RUN_ID"
+
+      - name: V-4-4 Slack Notification
+        #if: failure() # 스캔 실패 시에만 알림 발송
+        if: always()
+        env:
+          SLACK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          & "${{ env.VENV_PY }}" -m sra notify `
+            --run-id "$env:SRA_RUN_ID" `
+            --repo . `
+            --data-root "${{ env.SRA_DATA_ROOT }}" `
+            --webhook-url "${{ env.SLACK_URL }}" `
+            --user "${{ github.actor }}"
 
       - name: "Cleanup Old Reports"
         if: always()
