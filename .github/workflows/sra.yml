@@ -17,9 +17,12 @@ env:
   # G-2: 프로젝트 격리 절대 경로
   SRA_DATA_ROOT: 'C:\sra_data'
 
-  # [버전 관리] 최종 패치 버전 동기화
+  # ✅ [E-10-2] 중앙 정책 저장소 접근용 토큰 (GitHub Secrets 필수 등록)
+  SRA_POLICY_TOKEN: ${{ secrets.SRA_POLICY_TOKEN }}
+
+  # [버전 관리] 중앙 통제 로직(E-10-2)이 포함된 최신 패치 버전
   SRA_REPO_URL: 'https://github.com/sungbae85/worksra.git'
-  SRA_TAG: 'v0.2.24-20260101'
+  SRA_TAG: 'v0.3.01-20260102'
 
 jobs:
   sra:
@@ -34,12 +37,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install SRA Engine
+      - name: Install SRA Engine (E-10-2 Version Sync)
         run: |
           $TRUSTED = "--trusted-host", "pypi.org", "--trusted-host", "files.pythonhosted.org", "--trusted-host", "github.com"
           
-          Write-Host "Syncing SRA Engine Version: ${{ env.SRA_TAG }}..."
-          # 빌드 도구 최신화 및 엔진 설치 (WinError 2 방지용 도구 포함)
+          Write-Host "Syncing SRA Engine to Enterprise Version: ${{ env.SRA_TAG }}..."
+          # 빌드 도구 최신화 및 중앙 통제형 엔진 강제 재설치
           & "${{ env.VENV_PY }}" -m pip install $TRUSTED --upgrade pip setuptools wheel
           & "${{ env.VENV_PY }}" -m pip install $TRUSTED --force-reinstall "git+${{ env.SRA_REPO_URL }}@${{ env.SRA_TAG }}"
 
@@ -48,12 +51,16 @@ jobs:
           $RID = "${{ github.run_id }}-${{ github.run_attempt }}"
           echo "SRA_RUN_ID=$RID" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Run SRA Scan (G-2 Isolated Mode)
+      - name: Run SRA Scan (Centralized Policy Mode)
+        env:
+          # ✅ 엔진 내 RemotePolicyFetcher가 이 환경 변수를 읽어 sra-policies에 접근합니다.
+          SRA_POLICY_TOKEN: ${{ env.SRA_POLICY_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          # 가상환경 경로를 PATH에 추가하여 ruff, mypy 등 실행 보장
           $env:Path = "${{ env.VENV_BIN }};" + $env:Path
           
-          # ✅ --repo . 를 사용하여 현재 프로젝트(fastapi-demo)를 자동 감지
+          # --repo . 옵션은 실행 시점의 폴더명(fastapi-demo)을 추출하여 
+          # 중앙 인벤토리(inventory.yml)의 프로젝트 키와 매칭시킵니다.
           & "${{ env.VENV_PY }}" -m sra scan `
             --repo . `
             --user "${{ github.actor }}" `
@@ -61,19 +68,21 @@ jobs:
             --run-id "$env:SRA_RUN_ID" `
             --use-llm on
 
-      - name: Run SRA Gate (Dynamic Discovery)
+      - name: Run SRA Gate (Enterprise Quality Control)
         if: always()
+        env:
+          # 게이트 단계에서도 중앙 정책의 min_score를 확인하기 위해 토큰이 필요합니다.
+          SRA_POLICY_TOKEN: ${{ env.SRA_POLICY_TOKEN }}
         run: |
           $env:Path = "${{ env.VENV_BIN }};" + $env:Path
           
-          # ✅ 엔진이 스스로 C:\sra_data\fastapi-demo\{RID}\report.json을 찾아감
+          # 엔진이 중앙 정책(e.g., strict_security.yml)의 기준을 읽어 통과 여부를 결정합니다.
           & "${{ env.VENV_PY }}" -m sra gate `
             --repo . `
             --data-root "${{ env.SRA_DATA_ROOT }}" `
             --run-id "$env:SRA_RUN_ID"
 
       - name: V-4-4 Slack Notification
-        #if: failure() # 스캔 실패 시에만 알림 발송
         if: always()
         env:
           SLACK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -89,7 +98,7 @@ jobs:
         if: always()
         run: |
           $limit = (Get-Date).AddDays(-2)
-          # G-2: 격리 폴더(fastapi-demo) 하위의 오래된 리포트 삭제
+          # 프로젝트별(fastapi-demo) 하위 리포트 자동 정리
           $targetPath = Join-Path "${{ env.SRA_DATA_ROOT }}" "fastapi-demo"
           if (Test-Path $targetPath) {
               Get-ChildItem -Path $targetPath -Directory | Where-Object { $_.CreationTime -lt $limit } | ForEach-Object {
