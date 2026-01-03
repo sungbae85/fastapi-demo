@@ -22,7 +22,7 @@ env:
 
   # [버전 관리] 중앙 통제 로직(E-10-2)이 포함된 최신 패치 버전
   SRA_REPO_URL: 'https://github.com/sungbae85/worksra.git'
-  SRA_TAG: 'v0.3.03-20260103'
+  SRA_TAG: 'v0.3.04-20260103'
 
 jobs:
   sra:
