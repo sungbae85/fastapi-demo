@@ -26,7 +26,7 @@ env:
 
   # [버전 관리] 중앙 통제 로직(E-10-2)이 포함된 최신 패치 버전
   SRA_REPO_URL: 'https://github.com/sungbae85/worksra.git'
-  SRA_TAG: 'v0.4.2-20260106'
+  SRA_TAG: 'v0.4.4-20260106\'
 
 jobs:
   sra:
@@ -43,7 +43,7 @@ jobs:
 
       - name: Install SRA Engine (E-10-2 Version Sync)
         run: |
-          $TRUSTED = "--trusted-host", "pypi.org", "--trusted-host", "files.pythonhosted.org", "--trusted-host", "github.com"
+          $TRUSTED = '--trusted-host", "pypi.org", "--trusted-host", "files.pythonhosted.org", "--trusted-host", "github.com"
           
           Write-Host "Syncing SRA Engine to Enterprise Version: ${{ env.SRA_TAG }}..."
           # 빌드 도구 최신화 및 중앙 통제형 엔진 강제 재설치
