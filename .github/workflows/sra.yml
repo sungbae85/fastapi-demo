@@ -19,14 +19,14 @@ env:
 
   # e-10: llm의 plan과 patch시간 확보
   # 5분으로 넉넉하게 설정 - config에는 default 150초
-  SRA_LLM_READ_TIMEOUT: 300
+  SRA_LLM_READ_TIMEOUT: 600
 
   # ✅ [E-10-2] 중앙 정책 저장소 접근용 토큰 (GitHub Secrets 필수 등록)
   SRA_POLICY_TOKEN: ${{ secrets.SRA_POLICY_TOKEN }}
 
   # [버전 관리] 중앙 통제 로직(E-10-2)이 포함된 최신 패치 버전
   SRA_REPO_URL: 'https://github.com/sungbae85/worksra.git'
-  SRA_TAG: 'v0.4.1-20260106'
+  SRA_TAG: 'v0.4.2-20260106'
 
 jobs:
   sra:
