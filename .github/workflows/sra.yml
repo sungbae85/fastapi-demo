@@ -11,8 +11,8 @@ concurrency:
 
 env:
   # G-1: 시스템 고정 경로 (러너 PC 인프라)
-  VENV_PY: 'C:\worksra\venv\Scripts\python.exe'
-  VENV_BIN: 'C:\worksra\venv\Scripts'
+  VENV_PY: 'C:\worksra\.venv\Scripts\python.exe'
+  VENV_BIN: 'C:\worksra\.venv\Scripts'
 
   # G-2: 프로젝트 격리 절대 경로
   SRA_DATA_ROOT: 'C:\sra_data'
